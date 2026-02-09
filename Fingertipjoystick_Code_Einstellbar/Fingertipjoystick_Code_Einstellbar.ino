@@ -1,15 +1,13 @@
 #include <Joystick.h>
 
+// ================== STICK MODI ==================
+String StickMode1 = "Achse";   // A0
+String StickMode2 = "Tasten";  // A1
+String StickMode3 = "Achse";   // A2
+String StickMode4 = "Achse";   // A3
 
-//Einstellen des Modus des jeweiligen Joysticks: Achse (für Ausgabe als Achse), Tasten (für Ausgabe als je eine Taste pro Richtung)
-String StickMode1 = "Achse";   // Joystick am Anschluss A0
-String StickMode2 = "Tasten";  // Joystick am Anschluss A1
-String StickMode3 = "Achse";   // Joystick am Anschluss A2
-String StickMode4 = "Achse";   // Joystick am Anschluss A3
-
-int deadzone = 200;  //je größer der Wert umso kleiner ist die Auslenkung des Sticks bis die Taste ausgelöst wird (Maximum: 450)
-float smoothFactor = 0.5; // 0,05 - 1 (je größer der Wert umso schwächer die Glättung)
-
+int deadzone = 200;
+float smoothFactor = 0.5;
 
 
 
@@ -47,65 +45,59 @@ float smoothFactor = 0.5; // 0,05 - 1 (je größer der Wert umso schwächer die 
 
 
 
-
-
-
-
-// Analogeingänge
+// ================== ACHSEN ==================
 const int axisPins[4] = {A0, A1, A2, A3};
-
-// Interne Zwischenspeicher
 float smoothValues[4] = {0, 0, 0, 0};
-
-// Ergebnis der Modus-Auswertung
-// 0 = Achse, 1 = Tasten
 int modeResolved[4] = {0, 0, 0, 0};
 
+// ================== DIGITALE TASTER ==================
+const int buttonPins[8] = {2, 3, 4, 5, 6, 7, 8, 9};
 
-//Konvertierung des Eingabetextes in boolschen Wert
-int parseMode(String txt) {
-  txt.toLowerCase();
-  txt.trim();
-
-  if (txt.startsWith("a")) return 0;  // Achse
-  if (txt.startsWith("t")) return 1;  // Tasten
-
-  return 0; // Fallback: Achse
-}
-
-//Initialisierung des Joysticks
+// ================== JOYSTICK ==================
 Joystick_ Joystick(
   JOYSTICK_DEFAULT_REPORT_ID,
   JOYSTICK_TYPE_GAMEPAD,
-  8,
+  8,   // 8 Buttons
   0,
   true, true, true, true,
   false, false, false, false, false, false, false
 );
 
+// ================== HILFSFUNKTION ==================
+int parseMode(String txt) {
+  txt.toLowerCase();
+  txt.trim();
+  if (txt.startsWith("a")) return 0;
+  if (txt.startsWith("t")) return 1;
+  return 0;
+}
 
-
+// ================== SETUP ==================
 void setup() {
   Joystick.begin();
 
+  // Achsen initialisieren
   for (int i = 0; i < 4; i++) {
     smoothValues[i] = analogRead(axisPins[i]);
   }
 
-  // --- Kunden-Einstellungen EINMAL auswerten ---
+  // Stick-Modi auswerten
   String modesRaw[4] = {StickMode1, StickMode2, StickMode3, StickMode4};
-
   for (int i = 0; i < 4; i++) {
     modeResolved[i] = parseMode(modesRaw[i]);
   }
-}
 
+  // Digitale Taster
+  for (int i = 0; i < 8; i++) {
+    pinMode(buttonPins[i], INPUT_PULLUP);
+  }
+}
 
 void loop() {
 
+  // ----- ACHSEN / ACHS-TASTEN -----
   for (int i = 0; i < 4; i++) {
 
-    // Wert glätten
     int raw = analogRead(axisPins[i]);
     smoothValues[i] =
       (smoothFactor * raw) +
@@ -113,8 +105,6 @@ void loop() {
 
     int val = (int)smoothValues[i];
 
-
-    //  Achse
     if (modeResolved[i] == 0) {
       switch (i) {
         case 0: Joystick.setXAxis(val); break;
@@ -122,11 +112,7 @@ void loop() {
         case 2: Joystick.setZAxis(val); break;
         case 3: Joystick.setRxAxis(val); break;
       }
-    }
-
-    //  Tasten
-    else {
-      //Zentrieren der hinterlegten Achse wenn sie als Taste genutzt wird
+    } else {
       switch (i) {
         case 0: Joystick.setXAxis(511); break;
         case 1: Joystick.setYAxis(511); break;
@@ -140,5 +126,11 @@ void loop() {
       Joystick.setButton(buttonLow,  (val <= deadzone));
       Joystick.setButton(buttonHigh, (val >= (1023 - deadzone)));
     }
+  }
+
+  // ----- DIGITALE TASTER -----
+  for (int i = 0; i < 8; i++) {
+    bool pressed = (digitalRead(buttonPins[i]) == LOW);
+    Joystick.setButton(i, pressed);
   }
 }
